@@ -9,17 +9,24 @@ import random
 
 # Tabela global de processos (Nossa "RAM")
 tabela_processos = []
-pid_counter = 1000  # PIDs na vida real começam em 1000 
+# Nível Supremo: Memória Compartilhada
+espaco_ipc = {}
+# PIDs na vida real começam em 1000 
+pid_counter = 1000 
 
 class PCB:
-    """Bloco Descritor de Processo (Process Control Block)"""
-    def __init__(self, nome):
+    def __init__(self, nome, pai=None, prioridade=1):
         global pid_counter
         self.pid = pid_counter
         self.nome = nome
-        self.estado = "PRONTO"  # Estados possíveis: PRONTO, EXECUTANDO, TERMINADO
-        self.ciclos_restantes = random.randint(2, 6)  # Define o "peso" do processo (quantos ticks ele precisa)
+        self.estado = "PRONTO"
+        self.ciclos_restantes = random.randint(2, 6)
+        self.prioridade = prioridade  # Nível 4
+        self.pai = pai  # Nível 8
         pid_counter += 1
+
+# Recurso compartilhado 
+recurso_em_uso_por = None
 
 # ==========================================
 # FUNÇÕES DO KERNEL E ESCALONADOR
@@ -35,116 +42,185 @@ def boot():
     time.sleep(0.5)
     print("Bem-vindo ao terminal. Digite 'help' para comandos.\n")
 
-def spawn_process(nome):
-    """Cria um novo processo e adiciona na tabela (RAM)"""
-    novo_processo = PCB(nome)
-    tabela_processos.append(novo_processo)
-    print(f"[Kernel] Processo '{nome}' criado com PID {novo_processo.pid}")
-
-def escalonador_tick():
-    """Simula um ciclo (quantum) do processador executando a fila (Round Robin)"""
-    prontos = [p for p in tabela_processos if p.estado != "TERMINADO"]
-    
-    if not prontos:
-        print("[CPU] Ociosa (Idle). Nenhum processo na fila de prontos.")
+def spawn_process(nome, prioridade=1):
+    """Cria um novo processo respeitando o limite de 5 (OOM)"""
+    if len(tabela_processos) >= 5:
+        print(f"[ERRO] Out of Memory: Não foi possível criar '{nome}'.")
         return
 
-    # Pega o primeiro processo da fila
-    processo_atual = prontos[0]
+    novo_processo = PCB(nome, prioridade=prioridade)
+    tabela_processos.append(novo_processo)
+    print(f"[Kernel] Processo '{nome}' criado (PID {novo_processo.pid}, Prioridade {prioridade})")
+
+def escalonador_tick():
     
-    # CHAVEAMENTO DE CONTEXTO: Entrando na CPU
-    processo_atual.estado = "EXECUTANDO"
-    print(f"\n[CPU] Executando PID {processo_atual.pid} ({processo_atual.nome})...")
-    time.sleep(1)  # Simula o tempo real da CPU processando a tarefa
+    prontos = [p for p in tabela_processos if p.estado == "PRONTO"]
     
-    # Decrementa o trabalho necessário (simula que ele fez progresso)
-    processo_atual.ciclos_restantes -= 1
+    if not prontos:
+        return  # Sai da função se não houver ninguém pronto
+
+    # Nível 4: Ordena por prioridade (Garante que o maior número rode antes)
+    prontos.sort(key=lambda p: p.prioridade, reverse=True)
+    p = prontos[0]
     
-    # Verifica se o processo terminou seu trabalho
-    if processo_atual.ciclos_restantes <= 0:
-        processo_atual.estado = "TERMINADO"
-        print(f"[Kernel] Processo PID {processo_atual.pid} finalizou e liberou a memória.")
-        # Remove da tabela de processos (limpa a RAM)
-        tabela_processos.remove(processo_atual)
+    p.estado = "EXECUTANDO"
+    print(f"[CPU] Executando PID {p.pid} ({p.nome}) | Prioridade: {p.prioridade}")
+    time.sleep(0.2) # Diminuí o tempo para ser mais rápido
+    
+    p.ciclos_restantes -= 1
+    
+    if p.ciclos_restantes <= 0:
+        p.estado = "ZUMBI" # Nível 7
+        print(f"[Kernel] PID {p.pid} finalizou e virou um ZUMBI.")
     else:
-        # CHAVEAMENTO DE CONTEXTO: Saindo da CPU por preempção (acabou o tempo dele)
-        processo_atual.estado = "PRONTO"
-        # Tira do início da fila e coloca no final (Round Robin)
-        tabela_processos.remove(processo_atual)
-        tabela_processos.append(processo_atual)
-        print(f"[Kernel] Chaveamento de contexto. PID {processo_atual.pid} pausado e movido para o fim da fila.")
+        p.estado = "PRONTO"
+        # Move para o fim da lista para o Round Robin (Nível 2)
+        tabela_processos.remove(p)
+        tabela_processos.append(p)
 
 # ==========================================
 # INTERFACE COM O USUÁRIO (SHELL)
 # ==========================================
 
-def shell():
-    """O laço principal que aguarda comandos do usuário"""
+def fork_process(pid_pai):
+    """Nível 8: Clona um processo existente"""
+    pai = next((p for p in tabela_processos if p.pid == pid_pai), None)
+    if pai:
+        filho = PCB(f"{pai.nome}_filho", pai=pai.pid, prioridade=pai.prioridade)
+        tabela_processos.append(filho)
+        print(f"[Kernel] Fork: {pai.pid} clonado para {filho.pid}")
+
+def wait_process():
+    """Nível 7: Coleta processos Zumbi da memória"""
     global tabela_processos
+    antes = len(tabela_processos)
+    tabela_processos = [p for p in tabela_processos if p.estado != "ZUMBI"]
+    depois = len(tabela_processos)
+    print(f"[Kernel] Wait: {antes - depois} processos Zumbi removidos.")
+
+def shell():
+    """Terminal interativo do PyOS"""
+    global tabela_processos, recurso_em_uso_por
     
     while True:
         try:
-            # O Prompt do nosso SO
-            comando = input("root@pyos:~# ").strip().lower().split()
-            
-            # Evita erro se o usuário apertar Enter vazio
-            if not comando:
+            # Prompt estilizado
+            entrada = input("\nroot@pyos:~# ").strip().split()
+            if not entrada:
                 continue
-                
-            acao = comando[0]
+            
+            acao = entrada[0].lower()
+            comando = entrada
             
             if acao == "exit":
-                print("Desligando o sistema...")
-                break
-                
+                print("Desligando PyOS...")
+                sys.exit()
+
             elif acao == "help":
-                print("Comandos disponíveis:")
-                print("  spawn [nome] - Cria um novo processo")
-                print("  ps           - Lista os processos ativos")
-                print("  cpu          - Executa 1 ciclo do processador (Escalonador)")
-                print("  kill [PID]   - Encerra um processo à força")
-                print("  clear        - Limpa a tela")
-                print("  exit         - Desliga o sistema")
-                
+                print("\nComandos disponíveis:")
+                print("spawn [nome] [pri] - Cria processo (limite 5)")
+                print("ps                 - Lista processos e estados")
+                print("run                - Execução automática total")
+                print("cpu                - Executa 1 ciclo de clock")
+                print("kill [PID]         - Remove um processo")
+                print("block/unblock [PID]- Gerencia Espera de E/S")
+                print("lock/unlock [PID]  - Uso de recurso (Mutex)")
+                print("fork [PID]         - Clona um processo")
+                print("wait               - Limpa processos ZUMBI")
+                print("write [ref] [msg]  - Grava na memória IPC")
+                print("read [ref]         - Lê da memória IPC")
+                print("clear              - Limpa a tela")
+
             elif acao == "clear":
-                print("\033[H\033[J", end="")  # Código ANSI para limpar terminal
-                
+                print("\n" * 50)
+
             elif acao == "spawn":
                 if len(comando) > 1:
-                    spawn_process(comando[1])
+                    nome = comando[1]
+                    # Nível 4: Prioridade opcional (padrão 1)
+                    pri = int(comando[2]) if len(comando) > 2 else 1
+                    spawn_process(nome, pri)
                 else:
-                    print("Uso correto: spawn [nome_do_processo]")
-                    
+                    print("Uso: spawn [nome] [prioridade]")
+
             elif acao == "ps":
-                # Formatação em colunas para ficar parecido com o Linux
-                print(f"{'PID':<6} | {'NOME':<12} | {'ESTADO':<12} | {'CICLOS RESTANTES'}")
-                print("-" * 55)
+                print(f"\n{'PID':<6} | {'NOME':<12} | {'ESTADO':<10} | {'PRI':<4} | {'RESTO'}")
+                print("-" * 50)
                 for p in tabela_processos:
-                    print(f"{p.pid:<6} | {p.nome[:12]:<12} | {p.estado:<12} | {p.ciclos_restantes}")
+                    print(f"{p.pid:<6} | {p.nome[:12]:<12} | {p.estado:<10} | {p.prioridade:<4} | {p.ciclos_restantes}")
                 if not tabela_processos:
-                    print("Nenhum processo em execução.")
-                    
-            elif acao == "kill":
-                if len(comando) > 1:
-                    try:
-                        alvo = int(comando[1])
-                        # Recria a lista mantendo todos, exceto o alvo
-                        tabela_processos = [p for p in tabela_processos if p.pid != alvo]
-                        print(f"[Kernel] Sinal SIGKILL enviado. PID {alvo} destruído.")
-                    except ValueError:
-                        print("Erro: O PID deve ser um número inteiro.")
-                else:
-                    print("Uso correto: kill [PID]")
-                    
+                    print("Memória RAM vazia.")
+
+            elif acao == "run":
+                print("[Kernel] Iniciando execução automática...")
+                # Só roda enquanto existir alguém no estado PRONTO
+                while any(p.estado == "PRONTO" for p in tabela_processos):
+                    escalonador_tick()
+                print("[Kernel] Execução pausada. Use 'ps' para ver os Zumbis ou 'wait' para limpar.")
+
             elif acao == "cpu":
                 escalonador_tick()
-                
+
+            elif acao == "block":
+                if len(comando) > 1:
+                    pid = int(comando[1])
+                    for p in tabela_processos:
+                        if p.pid == pid:
+                            p.estado = "BLOQUEADO"
+                            print(f"[Kernel] PID {pid} bloqueado.")
+
+            elif acao == "unblock":
+                if len(comando) > 1:
+                    pid = int(comando[1])
+                    for p in tabela_processos:
+                        if p.pid == pid:
+                            p.estado = "PRONTO"
+                            print(f"[Kernel] PID {pid} desbloqueado.")
+
+            elif acao == "kill":
+                if len(comando) > 1:
+                    alvo = int(comando[1])
+                    tabela_processos = [p for p in tabela_processos if p.pid != alvo]
+                    print(f"[Kernel] PID {alvo} removido.")
+
+            elif acao == "lock":
+                if len(comando) > 1:
+                    pid = int(comando[1])
+                    if recurso_em_uso_por is None:
+                        recurso_em_uso_por = pid
+                        print(f"[Mutex] Recurso reservado para PID {pid}")
+                    else:
+                        print(f"[ALERTA] Conflito! Recurso em uso por PID {recurso_em_uso_por}")
+
+            elif acao == "unlock":
+                recurso_em_uso_por = None
+                print("[Mutex] Recurso liberado.")
+
+            elif acao == "fork":
+                if len(comando) > 1:
+                    fork_process(int(comando[1]))
+
+            elif acao == "wait":
+                wait_process()
+
+            elif acao == "write":
+                if len(comando) > 2:
+                    chave = comando[1]
+                    valor = " ".join(comando[2:])
+                    espaco_ipc[chave] = valor
+                    print(f"[IPC] Dados salvos em '{chave}'")
+
+            elif acao == "read":
+                if len(comando) > 1:
+                    print(f"[IPC] Conteúdo de '{comando[1]}': {espaco_ipc.get(comando[1], 'Vazio')}")
+
             else:
-                print(f"bash: {acao}: comando não encontrado. Digite 'help'.")
-                
-        # Intercepta o Ctrl+C para não "quebrar" o simulador com erro feio
+                print(f"Comando '{acao}' não reconhecido.")
+
+        except Exception as e:
+            print(f"Erro de execução: {e}")
         except KeyboardInterrupt:
-            print("\nPor favor, use 'exit' para sair do PyOS.")
+            print("\nUse 'exit' para encerrar.")
 
 # ==========================================
 # INÍCIO DO SISTEMA
