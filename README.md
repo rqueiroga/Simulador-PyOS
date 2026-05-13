@@ -1,101 +1,58 @@
-# 🖥️ PyOS - Simulador Educacional de Sistema Operacional
+# PyOS - Simulador Educacional de Sistema Operacional
 
-![Status](https://img.shields.io/badge/Status-Educacional-blue)
+![Status](https://img.shields.io/badge/Status-Concluído-brightgreen)
 ![Python](https://img.shields.io/badge/Python-3.x-green)
 
-Este repositório contém o **PyOS**, um simulador lógico de Sistema Operacional desenvolvido em Python para fins didáticos. O projeto foi desenhado para cobrir os conceitos fundamentais das **Unidades I e II** da disciplina de Sistemas Operacionais, permitindo que alunos explorem a mecânica interna de um Kernel sem a complexidade de linguagens de baixo nível.
+Este repositório contém a versão final do **PyOS**, um simulador lógico de Sistema Operacional desenvolvido em Python para fins didáticos. O projeto foi evoluído a partir de uma base educacional para implementar conceitos avançados de Kernel, cobrindo desde o gerenciamento básico de processos até comunicação entre processos (IPC).
 
-## 🎯 Objetivos Pedagógicos
-* Compreender o **Bloco Descritor de Processo (PCB)**.
-* Visualizar o **Chaveamento de Contexto** e o **Escalonamento Round Robin**.
-* Praticar a **Sincronização de Processos** através de Semáforos (Mutex).
-* Simular estados críticos como **Deadlock** e **Processos Zumbi**.
-* Entender chamadas de sistema (Syscalls) como o `fork()`.
+## Objetivos do Projeto:
+* Compreender o **Bloco Descritor de Processo (PCB)** e seu ciclo de vida.
+* Implementar e visualizar o **Chaveamento de Contexto**.
+* Praticar a **Sincronização de Processos** através de Mutex.
+* Gerenciar estados críticos como **Deadlock** e **Processos Zumbi**.
+* Simular chamadas de sistema (Syscalls) complexas como o `fork()`.
 
 ---
+
+## Desafios Concluídos:
+
+O simulador foi submetido a uma trilha de desafios técnicos, todos implementados com sucesso:
+
+- [x] **🟢 Nível 1: Limite de Memória (OOM)**
+  - Implementada proteção que impede o sistema de aceitar mais de 5 processos simultâneos, simulando falta de RAM.
+- [x] **🟡 Nível 2: Automador de Clock (Comando `run`)**
+  - Criação do comando `run` que automatiza os ciclos de CPU até que todos os processos prontos sejam executados.
+- [x] **🟡 Nível 3: Gargalo de E/S (Estado BLOQUEADO)**
+  - Implementação dos comandos `block` e `unblock` para gerenciar processos em espera de entrada/saída.
+- [x] **🟠 Nível 4: O Fim da Democracia (Prioridades)**
+  - O escalonador agora prioriza processos com maior nível de importância, garantindo execução preferencial.
+- [x] **🔴 Nível 5 & 6: Sincronização e Deadlock**
+  - Controle de acesso a recursos compartilhados via exclusão mútua (Mutex) com comandos `lock` e `unlock`.
+- [x] **🟣 Nível 7: O Apocalipse Zumbi**
+  - Processos finalizados agora permanecem na memória no estado `ZUMBI` até que o Kernel execute a limpeza via comando `wait`.
+- [x] **💀 Nível 8: O Boss Final (`fork()`)**
+  - Implementação da hierarquia de processos, permitindo que um processo pai clone seu contexto exato.
+- [x] **🔥 Nível Supremo: Comunicação entre Processos (IPC)**
+  - Criação de um espaço de memória compartilhada para troca de mensagens entre processos via comandos `write` e `read`.
+
+---
+
+## Como Executar:
 
 ## 🚀 Como Executar
 
 Certifique-se de ter o Python 3 instalado em sua máquina.
 
-1.  Clone este repositório:
-    ```bash
-    git clone https://github.com/FilipeHSAraujo/PyOs.git
-    ```
-2.  Navegue até a pasta do projeto:
-    ```bash
-    cd PyOS
-    ```
-3.  Execute o Kernel:
-    ```bash
-    python init.py
-    ```
+1. Clone este repositório, navegue até a pasta e execute o Kernel:
+   ```bash
+   git clone [https://github.com/rqueiroga/Simulador-PyOS.git]
+   cd Simulador-PyOS
+   python init.py
+   
+## Créditos e Atribuições:
+Este é um projeto educacional baseado no trabalho original do **Professor Filipe Araujo**.
 
----
+* [cite_start]**Repositório Original:** [PyOS - FilipeHSAraujo](https://github.com/FilipeHSAraujo/PyOs) 
+* **Docente Responsável:** [Filipe Araujo](https://github.com/FilipeHSAraujo)
 
-## 🛠️ Comandos do Shell (User Space)
-
-Ao iniciar o PyOS, você terá acesso a um terminal interativo (`root@pyos:~#`):
-
-| Comando | Descrição |
-| :--- | :--- |
-| `spawn [nome]` | Cria um novo processo na RAM (gera um PID único). |
-| `ps` | Lista todos os processos ativos e seus respectivos estados. |
-| `cpu` | Executa 1 ciclo (tick) de clock no processador (Escalonador). |
-| `lock [PID]` | Solicita acesso exclusivo a um recurso via Semáforo. |
-| `unlock [PID]` | Libera o recurso bloqueado para outros processos. |
-| `clear` | Limpa a tela do terminal. |
-| `exit` | Desliga o simulador. |
-
----
-
-## 🎮 Trilha de Desafios: Hackeando o Kernel
-
-O projeto foi estruturado em níveis de dificuldade para que você possa evoluir o código original e implementar novas funcionalidades:
-
-### 🟢 Nível 1: Limite de Memória (OOM)
-* **Missão:** Impeça que o sistema aceite mais de 5 processos simultâneos.
-* **Conceito:** Proteção de recursos e erro *Out of Memory*.
-
-### 🟡 Nível 2: Automador de Clock (Comando `run`)
-* **Missão:** Crie o comando `run` que executa o escalonador automaticamente em loop até a RAM esvaziar.
-* **Conceito:** Timer Interrupt e automação de ciclos de CPU.
-
-### 🟡 Nível 3: Gargalo de E/S (Estado BLOQUEADO)
-* **Missão:** Implemente os comandos `block` e `unblock` para simular esperas de periféricos.
-* **Conceito:** Ciclo de vida do processo e gerenciamento de E/S.
-
-### 🟠 Nível 4: O Fim da Democracia (Prioridades)
-* **Missão:** Adicione prioridades aos processos e altere o escalonador para processar primeiro os de alta prioridade.
-* **Conceito:** Escalonamento Preemptivo por Prioridade.
-
-### 🔴 Nível 5: Mago da Sincronização (Semáforos)
-* **Missão:** Implemente o controle de acesso a um recurso compartilhado (ex: Impressora).
-* **Conceito:** Exclusão mútua e Região Crítica.
-
-### 🔴 Nível 6: Arquiteto do Caos (Simulação de Deadlock)
-* **Missão:** Provoque uma espera circular entre dois processos por dois recursos distintos.
-* **Conceito:** Impasse de recursos e interrupção do sistema.
-
-### 🟣 Nível 7: O Apocalipse Zumbi
-* **Missão:** Altere o sistema para que processos terminados permaneçam na RAM como `ZUMBI` até o comando `wait`.
-* **Conceito:** Estruturas de dados pós-execução e coleta de lixo.
-
-### 💀 Nível 8: O Boss Final (`fork()`)
-* **Missão:** Implemente o comando `fork [PID]` para clonar um processo pai com seu contexto exato.
-* **Conceito:** Hierarquia de processos e clonagem de contexto.
-
-### 🔥 Nível Supremo: Comunicação entre Processos (IPC)
-* **Missão:** Crie memória compartilhada para que processos possam ler e escrever mensagens entre si.
-* **Conceito:** Isolamento de memória e IPC (Inter-Process Communication).
-
----
-
-## 📘 Referência Teórica
-Este projeto serve como material de apoio para as unidades curriculares de Sistemas Operacionais, focando em:
-* **Unidade I:** Fundamentos, Processos e Threads.
-* **Unidade II:** Gerência do Processador e Escalonamento.
-
----
-
-Desenvolvido para fins educacionais. Sinta-se à vontade para expandir o Kernel! 💻✨
+[cite_start]A licença original (MIT) foi mantida, permitindo o uso e modificação para fins didáticos.
